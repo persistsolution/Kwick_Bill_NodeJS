@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: . # Build the Docker image from the current directory
+      dockerfile: Dockerfile # Use the specified Dockerfile
+    container_name: kwickbill-api-dev # Specify a custom container name
+    volumes:
+      - .:/app # Mount the current directory to /app in the container
+    ports:
+      - "3000:3000" # Map port 3000 of the container to port 3000 on the host
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+    command: ["bun", "start"] # Command to start the application
+    working_dir: /app # Ensure the working directory is set to /app
