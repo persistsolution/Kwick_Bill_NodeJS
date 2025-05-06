@@ -3,7 +3,6 @@ import { create, destroy, get, edit, update,getList} from "@services/billsoftadm
 import { v4 as uuidv4 } from "uuid";
 import { putObject } from 'utils/putObject';
 import { Category } from '@models/billsoftadmin/selling-product/category-model';
-import fs from 'fs';
 import { UploadedFile } from "express-fileupload";
 import { deleteObject } from 'utils/deleteObject';
 
@@ -18,34 +17,48 @@ interface DeleteResponse {
   };
 }
 
+// interface UpdateResponse {
+//   success: boolean;
+//   message: string;
+//   data?: {
+//     id: number;
+//     Name: string;
+//     Photo: string | null;
+//     Featured: number;
+//     ProdType: number;
+//     Status: number;
+//     srno: number;
+//     Roll: number;
+//     CreatedBy: number;
+//     ModifiedBy: number;
+//     push_flag: boolean;
+//     delete_flag: boolean;
+//     CreatedDate: Date;
+//     ModifiedDate: Date | null;
+//     modified_time: Date | null;
+//   };
+//   details?: {
+//     oldFileDeleted?: boolean;
+//     newFileUploaded?: boolean;
+//     oldS3Key?: string;
+//     newS3Key?: string;
+//     s3OperationError?: string;
+//   };
+// }
+
 interface UpdateResponse {
   success: boolean;
   message: string;
-  data?: {
-    id: number;
-    Name: string;
-    Photo: string | null;
-    Featured: number;
-    ProdType: number;
-    Status: number;
-    srno: number;
-    Roll: number;
-    CreatedBy: number;
-    ModifiedBy: number;
-    push_flag: boolean;
-    delete_flag: boolean;
-    CreatedDate: Date;
-    ModifiedDate: Date | null;
-    modified_time: Date | null;
-  };
+  data?: any;
   details?: {
     oldFileDeleted?: boolean;
-    newFileUploaded?: boolean;
     oldS3Key?: string;
+    newFileUploaded?: boolean;
     newS3Key?: string;
     s3OperationError?: string;
   };
 }
+
 
 export const getController = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -58,7 +71,7 @@ export const getController = async (req: Request, res: Response): Promise<void> 
   };
 
 // Create Category
-export const createController = async (req: Request, res: Response): Promise<Response> => {
+export const createController = async (req: Request, res: Response): Promise<void> => {
   try {
     const { Name, Featured, ProdType, Status, srno, Roll, CreatedBy, ModifiedBy, push_flag, delete_flag } = req.body;
     const file = req.files?.Photo as UploadedFile;
@@ -119,29 +132,19 @@ export const editController = async (req: Request, res: Response): Promise<void>
 };
 
 // Update Category
-// export const updateController = async (req: Request, res: Response): Promise<void> => {
-//   try {
-//     const updated = await update(Number(req.params.id),req.body);
-//     console.log("Category Updated Successfully:", updated);
-//     res.status(200).json(updated);
-//   } catch (error) {
-//     console.error("Error updating Category", error);
-//     res.status(500).json({ message: "Failed to Updated Category" });
-//   }
-  
-// };
-
-export const updateController = async (req: Request, res: Response): Promise<Response> => {
+export const updateController = async (req: Request, res: Response): Promise<void> => {
   const response: UpdateResponse = {
     success: false,
     message: 'Update process started'
   };
+
   try {
     const categoryId = Number(req.params.id);
     if (isNaN(categoryId)) {
       response.message = 'Invalid category ID: must be a number';
       return res.status(400).json(response);
     }
+
     const numericFields = ['Featured', 'ProdType', 'Status', 'srno', 'Roll', 'ModifiedBy'];
     const invalidFields = numericFields.filter(field => {
       const value = req.body[field];
@@ -158,37 +161,42 @@ export const updateController = async (req: Request, res: Response): Promise<Res
       response.message = 'Category not found';
       return res.status(404).json(response);
     }
+
     const { Name, Featured, ProdType, Status, srno, Roll, ModifiedBy, push_flag, delete_flag } = req.body;
-    const file = req.files?.Photo as UploadedFile;
+    const file = req.files?.Photo as UploadedFile | undefined;
+
     let oldS3Key: string | null = null;
     let newS3Key: string | null = null;
-    let photoUrl = category.Photo;
+    let photoUrl = category.dataValues.Photo;
     let s3OperationError: string | undefined;
+
     if (file) {
       try {
-        if (category.Photo) {
+        if (photoUrl) {
           try {
-            const urlParts = new URL(category.Photo);
+            const urlParts = new URL(photoUrl);
             oldS3Key = decodeURIComponent(urlParts.pathname.slice(1));
           } catch (err) {
             console.error('Error parsing existing photo URL:', err);
             s3OperationError = 'Error parsing existing photo URL';
           }
         }
+
         const fileName = `uploads/${Date.now()}_${file.name}`;
         const result = await putObject(file.data, fileName, file.mimetype);
-        if (!result) {
-          throw new Error('Failed to upload new image to S3');
-        }
+
+        if (!result) throw new Error('Failed to upload new image to S3');
+
         photoUrl = result.url;
         newS3Key = result.key;
+
         if (oldS3Key) {
           try {
             await deleteObject(oldS3Key);
             response.details = {
               ...response.details,
               oldFileDeleted: true,
-              oldS3Key: oldS3Key
+              oldS3Key
             };
           } catch (deleteError) {
             console.error('Error deleting old file from S3:', deleteError);
@@ -202,7 +210,6 @@ export const updateController = async (req: Request, res: Response): Promise<Res
       }
     }
 
-    // Prepare update data
     const updateData = {
       Name,
       Photo: photoUrl,
@@ -212,34 +219,31 @@ export const updateController = async (req: Request, res: Response): Promise<Res
       srno: srno !== undefined ? Number(srno) : category.srno,
       Roll: Roll !== undefined ? Number(Roll) : category.Roll,
       ModifiedBy: ModifiedBy !== undefined ? Number(ModifiedBy) : category.ModifiedBy,
-      push_flag: push_flag !== undefined ? push_flag === "true" : category.push_flag,
-      delete_flag: delete_flag !== undefined ? delete_flag === "true" : category.delete_flag,
+      push_flag: push_flag !== undefined ? push_flag === 'true' : category.push_flag,
+      delete_flag: delete_flag !== undefined ? delete_flag === 'true' : category.delete_flag,
       ModifiedDate: new Date(),
       modified_time: new Date()
     };
 
-    // Update category
-    const updatedCategory :any = await category.update(updateData);
+    const updatedCategory = await category.update(updateData);
 
     response.success = true;
     response.message = 'Category updated successfully';
-    response.data = updatedCategory;
+    response.data = updatedCategory.get({ plain: true });
     response.details = {
       ...response.details,
       newFileUploaded: !!file,
       newS3Key: newS3Key || undefined,
-      s3OperationError: s3OperationError
+      s3OperationError
     };
 
     return res.status(200).json(response);
   } catch (error) {
     console.error('Update error:', error);
     response.message = 'Failed to complete update process';
-    
     if (error instanceof Error) {
       response.message += `: ${error.message}`;
     }
-
     return res.status(500).json(response);
   }
 };

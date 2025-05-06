@@ -2,10 +2,13 @@
     "version": "0.2.0",
     "configurations": [
       {
-        "name": "Debug NodeJS",
-        "type": "node-terminal",
+        "type": "node",
         "request": "launch",
-        "command": "bun run index.ts"
+        "name": "Debug Compiled TypeScript",
+        "program": "${workspaceFolder}/dist/index.js", // point to compiled JS
+        "preLaunchTask": "tsc: build - tsconfig.json", // optional
+        "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+        "sourceMaps": true
       }
     ]
   }

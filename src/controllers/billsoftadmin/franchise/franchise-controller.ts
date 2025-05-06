@@ -23,7 +23,7 @@ export const createController = async (req: Request, res: Response): Promise<voi
   try {
     const createdFranchise = await create(req.body);
     console.log("Franchise Created Successfully:", createdFranchise);
-    res.status(201).json({ message: "Franchise created successfully", data: createdFranchise });
+    res.status(200).json({ message: "Franchise created successfully", data: createdFranchise });
   } catch (error) {
     console.error("Error creating Franchise:", error);
     const errMsg = error instanceof Error ? error.message : "An unknown error occurred";
